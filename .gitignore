@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+ytx_cache.sqlite3*
+.DS_Store
+.env
+ROADMAP.md
