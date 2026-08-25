@@ -1,0 +1,38 @@
+name = "general"
+description = "Repairs that hold for any video. Always applied."
+# The general pack is deliberately small: without domain knowledge, almost
+# every "obvious" fix has a counter-example. "set up" and "log in" are valid
+# verb phrases, "windows" and "rust" are ordinary nouns, so none are listed.
+detect = []
+
+rules = [
+  # platform and product names ASR lowercases
+  ['\byou\s+tube\b',    "YouTube"],
+  ['\byoutube\b',       "YouTube"],
+  ['\bgoogle\b',        "Google"],
+  ['\bfacebook\b',      "Facebook"],
+  ['\binstagram\b',     "Instagram"],
+  ['\btiktok\b',        "TikTok"],
+  ['\btik\s+tok\b',     "TikTok"],
+  ['\blinkedin\b',      "LinkedIn"],
+  ['\bwhatsapp\b',      "WhatsApp"],
+  ['\bspotify\b',       "Spotify"],
+  ['\bnetflix\b',       "Netflix"],
+  ['\bwikipedia\b',     "Wikipedia"],
+  ['\bpaypal\b',        "PayPal"],
+  ['\biphone\b',        "iPhone"],
+  ['\bipad\b',          "iPad"],
+  ['\bmacbook\b',       "MacBook"],
+  ['\bandroid\b',       "Android"],
+  ['\bcovid\b',         "COVID"],
+  # split compounds with no valid two-word reading
+  ['\bweb\s+site\b',    "website"],
+  ['\bweb\s+sites\b',   "websites"],
+  ['\be\s+mail\b',      "email"],
+  ['\bdata\s+base\b',   "database"],
+  ['\bdata\s+bases\b',  "databases"],
+  ['\bwork\s+flow\b',   "workflow"],
+  ['\bwork\s+flows\b',  "workflows"],
+  ['\bcan\s+not\b',     "cannot"],
+  ['\breal\s+time\b',   "real-time"],
+]
