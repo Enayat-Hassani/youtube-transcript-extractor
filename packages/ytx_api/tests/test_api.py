@@ -235,6 +235,47 @@ def test_no_content_disposition_by_default(client: TestClient) -> None:
     assert "content-disposition" not in response.headers
 
 
+def test_clean_returns_markdown_doc(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_compose(doc, video_id, *, frames, keep_sponsors, use_sponsorblock, fix_terms):
+        captured.update(
+            video_id=video_id,
+            frames=frames,
+            keep_sponsors=keep_sponsors,
+            use_sponsorblock=use_sponsorblock,
+            fix_terms=fix_terms,
+        )
+        return "# cleaned doc\n"
+
+    monkeypatch.setattr(main_module, "_compose_clean_doc", fake_compose)
+    response = client.get("/api/v1/transcripts/dQw4w9WgXcQ?clean=true")
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/markdown")
+    assert response.text == "# cleaned doc\n"
+    # defaults: strip sponsors on, sponsorblock on, fix terms on, frames off
+    assert captured == {
+        "video_id": "dQw4w9WgXcQ",
+        "frames": False,
+        "keep_sponsors": False,
+        "use_sponsorblock": True,
+        "fix_terms": True,
+    }
+
+
+def test_clean_download_sets_markdown_filename(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(main_module, "_compose_clean_doc", lambda *a, **k: "# doc\n")
+    response = client.get("/api/v1/transcripts/dQw4w9WgXcQ?clean=true&download=true")
+    assert response.status_code == 200
+    assert response.headers["content-disposition"] == 'attachment; filename="dQw4w9WgXcQ.md"'
+
+
 def test_comma_separated_languages_reach_service(client: TestClient, service: FakeService) -> None:
     response = client.get("/api/v1/transcripts/dQw4w9WgXcQ?languages=en,de")
     assert response.status_code == 200

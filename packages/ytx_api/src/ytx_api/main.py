@@ -27,7 +27,10 @@ from ytx_core import (
     YtxError,
     format_transcript,
 )
+from ytx_core.cleanup import CleanupOptions, clean
+from ytx_core.doc import compose_markdown_doc, fetch_video_metadata
 from ytx_core.jobs import JobRunner
+from ytx_core.screen import extract_screen_text
 
 _MEDIA_TYPES = {
     "srt": "application/x-subrip",
@@ -90,6 +93,42 @@ def _parse_languages(raw: str | None) -> list[str] | None:
     languages = [part.strip() for part in raw.split(",")]
     filtered = [lang for lang in languages if lang]
     return filtered or None
+
+
+def _compose_clean_doc(
+    doc: TranscriptDocument,
+    video_id: str,
+    *,
+    frames: bool,
+    keep_sponsors: bool,
+    use_sponsorblock: bool,
+    fix_terms: bool,
+) -> str:
+    """Run the `ytx doc` pipeline (sponsor removal, vocabulary repair, and
+    optional on-screen OCR) and return an AI-ready Markdown document."""
+    metadata = fetch_video_metadata(video_id)
+    options = CleanupOptions(
+        fix_terms=fix_terms,
+        strip_sponsors=not keep_sponsors,
+        use_sponsorblock=use_sponsorblock,
+        clean_description=True,
+    )
+    doc, description, report = clean(
+        doc,
+        video_id=video_id,
+        title=metadata.title,
+        description=metadata.description,
+        options=options,
+    )
+    if description != metadata.description:
+        metadata = metadata.model_copy(update={"description": description})
+    captures = []
+    if frames:
+        # Needs ffmpeg + an OCR engine; degrades to no captures (with a status)
+        # when they're missing, so this never hard-fails the request.
+        screen = extract_screen_text(video_id, metadata.duration_sec or doc.last_end)
+        captures = screen.captures
+    return compose_markdown_doc(metadata, doc, notes=report.notes, screen=captures)
 
 
 def _attachment_headers(video_id: str, fmt: str) -> dict[str, str]:
@@ -159,6 +198,11 @@ def create_app(
         download: bool = False,
         refresh: bool = False,
         translate: str | None = None,
+        clean: bool = False,
+        frames: bool = False,
+        keep_sponsors: bool = False,
+        sponsorblock: bool = True,
+        fix_terms: bool = True,
     ) -> object:
         svc: TranscriptService = request.app.state.service
         doc = svc.get(
@@ -167,6 +211,23 @@ def create_app(
             refresh=refresh,
             translate_to=translate,
         )
+
+        # `clean`/`frames` run the full doc pipeline and always return Markdown,
+        # regardless of `format` (the composed document is inherently Markdown).
+        if clean or frames:
+            markdown = _compose_clean_doc(
+                doc,
+                video_id,
+                frames=frames,
+                keep_sponsors=keep_sponsors,
+                use_sponsorblock=sponsorblock,
+                fix_terms=fix_terms,
+            )
+            headers = _attachment_headers(video_id, "md") if download else None
+            return PlainTextResponse(
+                markdown, media_type="text/markdown; charset=utf-8", headers=headers
+            )
+
         fmt = format.value
         headers = _attachment_headers(video_id, fmt) if download else None
         if format is ExportFormat.JSON:

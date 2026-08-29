@@ -95,6 +95,32 @@ bounds expand only over segments naming the advertiser, and removal is capped
 both per block and per transcript. An ad is more likely to survive than real
 content be removed.
 
+## REST API
+
+`uv run uvicorn ytx_api.main:app --port 8000` exposes:
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /api/v1/transcripts/{video_id}` | One transcript. `format=json\|srt\|vtt\|txt\|md`, `languages=en,de`, `translate=en`, `refresh=true`, `download=true`. |
+| `GET /api/v1/videos/{video_id}` | Available caption languages. |
+| `POST /api/v1/transcripts` | Batch — body `{"urls": [...]}` → `{job_id}`. Populates the cache. |
+| `GET /api/v1/jobs/{job_id}` | Batch job status + per-url results. |
+| `GET /health` | Status and per-backend circuit-breaker state. |
+
+The transcript endpoint can also run the full `doc` pipeline (same cleanup as
+`ytx doc`) and return Markdown:
+
+- `clean=true` — remove sponsor blocks and repair vocabulary; returns the
+  composed Markdown document (frontmatter, chapters, cleanup banner).
+- `frames=true` — additionally OCR on-screen text (needs `ffmpeg` + an OCR
+  engine; degrades gracefully when absent). Downloads the video, so it's slow.
+- `keep_sponsors=true`, `sponsorblock=false`, `fix_terms=false` — turn off
+  individual cleanup passes.
+
+```bash
+curl "http://localhost:8000/api/v1/transcripts/VIDEO_ID?clean=true"
+```
+
 ## Architecture
 
 ```
